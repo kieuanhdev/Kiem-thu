@@ -4,6 +4,8 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import com.nhom6.ecommerce.entity.Voucher;
 import jakarta.validation.constraints.*;
 import lombok.Data;
+import org.springframework.format.annotation.DateTimeFormat;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -33,10 +35,12 @@ public class VoucherRequestDTO {
 
     @NotNull(message = "Vui lòng chọn ngày bắt đầu")
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) // <--- THÊM DÒNG NÀY
     private LocalDateTime startAt;
 
     @NotNull(message = "Vui lòng chọn ngày kết thúc")
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) // <--- THÊM DÒNG NÀY
     private LocalDateTime endAt;
 
     @NotNull(message = "7E.1: Vui lòng nhập số lượng phát hành")
