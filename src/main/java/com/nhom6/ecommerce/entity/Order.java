@@ -60,6 +60,16 @@ public class Order {
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
     private List<OrderItem> items;
 
+    @Column(name = "delivery_date")
+    private LocalDateTime deliveryDate; // Ngày giao hàng thành công
+
     public enum PaymentMethod { COD, BANKING, MOMO }
-    public enum OrderStatus { PENDING, CONFIRMED, SHIPPING, COMPLETED, CANCELLED }
+    public enum OrderStatus {
+        PENDING,
+        CONFIRMED,
+        SHIPPING,
+        DELIVERED, // <--- Thêm trạng thái này
+        COMPLETED,
+        CANCELLED
+    }
 }
