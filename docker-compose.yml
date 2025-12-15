@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  mysql-db:
+    image: mysql:8.0
+    container_name: nhom6_mysql_container
+    restart: always
+    environment:
+      MYSQL_DATABASE: nhom6_db        # Tên database sẽ tự tạo
+      MYSQL_ROOT_PASSWORD: root       # Mật khẩu root
+      MYSQL_USER: user_nhom6          # Tạo thêm 1 user phụ (optional)
+      MYSQL_PASSWORD: password123     # Mật khẩu user phụ
+    ports:
+      - "3306:3306"                   # Mở cổng 3306 ra ngoài để Spring Boot kết nối
+    volumes:
+      - db_data:/var/lib/mysql        # Giữ lại dữ liệu kể cả khi tắt Docker
+
+volumes:
+  db_data:
