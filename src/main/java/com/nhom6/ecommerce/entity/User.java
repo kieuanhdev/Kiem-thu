@@ -16,7 +16,7 @@ import java.time.LocalDateTime;
 public class User {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID) // <--- SỬA LẠI DÒNG NÀY
+    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "user_id")
     private String userId;
 
@@ -44,21 +44,24 @@ public class User {
 
     private String address;
 
+    // --- SỬA ĐOẠN NÀY ---
+    // Đổi từ String sang Enum để quản lý chặt chẽ các hạng (Đồng, Bạc, Vàng...)
+    @Enumerated(EnumType.STRING)
     @Column(name = "membership_level")
-    private String membershipLevel;
+    private MembershipLevel membershipLevel = MembershipLevel.BRONZE; // Mặc định là Đồng
 
     private LocalDate birthday;
 
     @Column(name = "order_points")
-    private int orderPoints = 0;
+    private Integer orderPoints = 0; // Dùng Integer thay vì int để tương thích tốt hơn với Hibernate
 
     @Column(name = "created_at")
-    private LocalDateTime createdAt; // Sẽ xử lý tự động ở dưới
+    private LocalDateTime createdAt;
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    // Tự động cập nhật thời gian khi tạo hoặc sửa
+    // Tự động cập nhật thời gian
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
@@ -70,7 +73,15 @@ public class User {
         updatedAt = LocalDateTime.now();
     }
 
-    // Enum
+    // --- CÁC ENUM ---
     public enum Gender { MALE, FEMALE, OTHER }
     public enum Role { CUSTOMER, ADMIN }
+
+    // Thêm Enum này để phục vụ tính năng Hạng thành viên
+    public enum MembershipLevel {
+        BRONZE,  // Đồng
+        SILVER,  // Bạc
+        GOLD,    // Vàng
+        DIAMOND  // Kim cương
+    }
 }

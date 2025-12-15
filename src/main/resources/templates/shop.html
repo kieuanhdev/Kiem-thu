@@ -4,6 +4,7 @@
     <title>Cửa Hàng Trực Tuyến</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         .product-card {
             transition: transform 0.3s;
@@ -25,12 +26,13 @@
             font-weight: bold;
             font-size: 1.2rem;
         }
-        .old-price {
-            text-decoration: line-through;
-            color: #999;
-            font-size: 0.9rem;
-            margin-left: 10px;
+        .cart-badge {
+            font-size: 0.7rem;
+            position: absolute;
+            top: 5px;
+            right: 5px;
         }
+        .cursor-pointer { cursor: pointer; }
     </style>
 </head>
 <body class="bg-light">
@@ -38,43 +40,306 @@
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top">
     <div class="container">
         <a class="navbar-brand fw-bold" href="/"><i class="fas fa-shopping-bag"></i> NHÓM 6 SHOP</a>
-        <div class="d-flex gap-2">
-            <a href="/admin/products" class="btn btn-outline-light btn-sm">Trang Admin</a>
-            <a href="/login" class="btn btn-warning btn-sm">Đăng nhập</a>
+
+        <div class="d-flex align-items-center gap-3">
+            <button class="btn btn-outline-light position-relative" onclick="openCartModal()">
+                <i class="fas fa-shopping-cart"></i>
+                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="cartCount">
+                    0
+                </span>
+            </button>
+
+            <div id="guest-section">
+                <a href="/login" class="btn btn-warning btn-sm fw-bold">Đăng nhập</a>
+            </div>
+
+            <div id="user-section" class="d-none align-items-center text-white">
+                <span class="me-2">Xin chào, <b id="userNameDisplay">User</b></span>
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                        <i class="fas fa-user-circle"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="/profile"><i class="fas fa-user-cog me-2"></i> Tài khoản của tôi</a></li>
+
+                        <li><a class="dropdown-item" href="/admin/dashboard" id="adminLink" style="display:none">Trang Quản trị</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item text-danger" href="#" onclick="logout()">Đăng xuất</a></li>
+                    </ul>
+                </div>
+            </div>
         </div>
     </div>
 </nav>
 
 <div class="container py-5">
-    <h3 class="text-center mb-4 fw-bold">SẢN PHẨM MỚI NHẤT</h3>
+    <div class="alert alert-info d-flex justify-content-between align-items-center">
+        <span>🎉 Giảm giá 10% cho thành viên mới! Nhập mã: <b>NEWUSER</b></span>
+        <button class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
 
     <div class="row row-cols-1 row-cols-md-3 row-cols-lg-4 g-4">
         <div class="col" th:each="p : ${products}">
             <div class="card h-100 product-card">
                 <img th:src="${p.thumbnail}" class="product-img" alt="Product Image">
                 <div class="card-body d-flex flex-column">
-                    <h5 class="card-title text-truncate" th:text="${p.name}">iPhone 15</h5>
+                    <h5 class="card-title text-truncate" th:text="${p.name}">Tên SP</h5>
 
                     <div class="mt-auto">
                         <div class="mb-2">
                             <span class="price-tag" th:text="${#numbers.formatDecimal(p.salePrice, 0, 'COMMA', 0, 'POINT')} + ' đ'"></span>
-                            <span class="old-price" th:if="${p.originalPrice != null}"
-                                  th:text="${#numbers.formatDecimal(p.originalPrice, 0, 'COMMA', 0, 'POINT')} + ' đ'"></span>
                         </div>
 
-                        <a th:href="@{/checkout-page(productId=${p.id})}" class="btn btn-primary w-100">
-                            <i class="fas fa-cart-plus"></i> Mua Ngay
-                        </a>
+                        <div class="d-flex gap-2">
+                            <a th:href="@{/checkout-page(productId=${p.id})}" class="btn btn-primary flex-grow-1">
+                                Mua Ngay
+                            </a>
+                            <button class="btn btn-outline-success"
+                                    onclick="addToCart('[[${p.id}]]', '[[${p.name}]]', '[[${p.salePrice}]]', '[[${p.thumbnail}]]')">
+                                <i class="fas fa-cart-plus"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+</div>
 
-    <div th:if="${products.empty}" class="text-center mt-5 text-muted">
-        <p>Chưa có sản phẩm nào. Vui lòng vào Admin thêm sản phẩm.</p>
+<div class="modal fade" id="cartModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title"><i class="fas fa-shopping-cart"></i> Giỏ Hàng Của Bạn</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div style="max-height: 300px; overflow-y: auto;">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light sticky-top">
+                        <tr>
+                            <th>Sản phẩm</th>
+                            <th>Giá</th>
+                            <th>SL</th>
+                            <th></th>
+                        </tr>
+                        </thead>
+                        <tbody id="cartItemsBody"></tbody>
+                    </table>
+                </div>
+
+                <div class="border-top pt-3 mt-3">
+                    <div class="row">
+                        <div class="col-md-7">
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-ticket-alt"></i></span>
+                                <input type="text" id="cartVoucherInput" class="form-control" placeholder="Nhập mã Voucher (nếu có)">
+                            </div>
+                        </div>
+                        <div class="col-md-5 text-end">
+                            <div class="fs-5 fw-bold">
+                                Tổng: <span id="cartTotal" class="text-danger">0 đ</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                <button type="button" class="btn btn-success" onclick="processCheckout()">Thanh Toán</button>
+            </div>
+        </div>
     </div>
 </div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    // --- KHU VỰC XỬ LÝ AUTH (Đăng nhập/Đăng xuất) ---
+
+    // Kiểm tra trạng thái đăng nhập khi tải trang
+    document.addEventListener("DOMContentLoaded", function() {
+        checkLoginStatus();
+        loadCart();
+    });
+
+    function checkLoginStatus() {
+        const userStr = localStorage.getItem('currentUser');
+        const guestSection = document.getElementById('guest-section');
+        const userSection = document.getElementById('user-section');
+
+        if (userStr) {
+            const user = JSON.parse(userStr);
+            // Ẩn nút đăng nhập, hiện tên user
+            guestSection.classList.add('d-none');
+            userSection.classList.remove('d-none');
+            userSection.classList.add('d-flex');
+
+            document.getElementById('userNameDisplay').innerText = user.fullName || user.email;
+
+            // Nếu là Admin thì hiện thêm link vào trang quản trị
+            if (user.role === 'ADMIN') {
+                document.getElementById('adminLink').style.display = 'block';
+            }
+        } else {
+            // Hiện nút đăng nhập
+            guestSection.classList.remove('d-none');
+            userSection.classList.add('d-none');
+            userSection.classList.remove('d-flex');
+        }
+    }
+
+    function logout() {
+        Swal.fire({
+            title: 'Đăng xuất?',
+            text: "Bạn có chắc muốn thoát tài khoản không?",
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Đăng xuất'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // Xóa thông tin khỏi LocalStorage
+                localStorage.removeItem('currentUser');
+                // Reload trang để cập nhật giao diện
+                window.location.reload();
+            }
+        })
+    }
+
+    // --- KHU VỰC XỬ LÝ GIỎ HÀNG (CART) ---
+
+    let cart = [];
+
+    function loadCart() {
+        const savedCart = localStorage.getItem('cart');
+        if (savedCart) {
+            cart = JSON.parse(savedCart);
+        }
+        updateCartBadge();
+    }
+
+    function saveCart() {
+        localStorage.setItem('cart', JSON.stringify(cart));
+        updateCartBadge();
+    }
+
+    function addToCart(id, name, price, thumbnail) {
+        // Kiểm tra xem sản phẩm đã có trong giỏ chưa
+        const existingItem = cart.find(item => item.id === id);
+
+        if (existingItem) {
+            existingItem.quantity += 1;
+        } else {
+            cart.push({ id, name, price, thumbnail, quantity: 1 });
+        }
+
+        saveCart();
+
+        // Hiệu ứng thông báo nhỏ góc màn hình (Toast)
+        const Toast = Swal.mixin({
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 1500,
+            timerProgressBar: true
+        })
+        Toast.fire({
+            icon: 'success',
+            title: 'Đã thêm vào giỏ hàng'
+        })
+    }
+
+    function removeFromCart(index) {
+        cart.splice(index, 1);
+        saveCart();
+        renderCartItems(); // Render lại modal
+    }
+
+    function updateCartBadge() {
+        // Tính tổng số lượng item
+        const count = cart.reduce((sum, item) => sum + item.quantity, 0);
+        document.getElementById('cartCount').innerText = count;
+    }
+
+    function openCartModal() {
+        renderCartItems();
+        new bootstrap.Modal(document.getElementById('cartModal')).show();
+    }
+
+    function renderCartItems() {
+        const tbody = document.getElementById('cartItemsBody');
+        tbody.innerHTML = '';
+        let total = 0;
+
+        if (cart.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center">Giỏ hàng trống</td></tr>';
+        } else {
+            cart.forEach((item, index) => {
+                total += item.price * item.quantity;
+                tbody.innerHTML += `
+                    <tr>
+                        <td><img src="${item.thumbnail}" style="width: 50px; height: 50px; object-fit: cover;"></td>
+                        <td>${item.name}</td>
+                        <td>${new Intl.NumberFormat('vi-VN').format(item.price)} đ</td>
+                        <td>
+                            <input type="number" min="1" value="${item.quantity}"
+                                   class="form-control form-control-sm" style="width: 60px"
+                                   onchange="updateQuantity(${index}, this.value)">
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-danger" onclick="removeFromCart(${index})">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+        document.getElementById('cartTotal').innerText = new Intl.NumberFormat('vi-VN').format(total) + ' đ';
+    }
+
+    function updateQuantity(index, newQty) {
+        if (newQty < 1) newQty = 1;
+        cart[index].quantity = parseInt(newQty);
+        saveCart();
+        renderCartItems(); // Cập nhật lại tổng tiền
+    }
+
+    function processCheckout() {
+        if (cart.length === 0) {
+            Swal.fire('Giỏ hàng trống', 'Vui lòng chọn sản phẩm trước', 'warning');
+            return;
+        }
+
+        // Kiểm tra đăng nhập
+        const user = localStorage.getItem('currentUser');
+        if (!user) {
+            Swal.fire({
+                title: 'Yêu cầu đăng nhập',
+                text: "Bạn cần đăng nhập để thanh toán",
+                icon: 'info',
+                showCancelButton: true,
+                confirmButtonText: 'Đăng nhập ngay'
+            }).then((res) => {
+                if(res.isConfirmed) window.location.href = '/login';
+            });
+            return;
+        }
+
+        // 1. Lưu mã Voucher tạm vào LocalStorage để trang Checkout đọc được
+        const voucherCode = document.getElementById('cartVoucherInput').value.trim();
+        if (voucherCode) {
+            localStorage.setItem('tempVoucher', voucherCode);
+        } else {
+            localStorage.removeItem('tempVoucher');
+        }
+
+        // 2. Chuyển hướng sang trang thanh toán (Không kèm ID -> Chế độ Cart)
+        window.location.href = '/checkout-page';
+    }
+</script>
 
 </body>
 </html>

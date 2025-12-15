@@ -1,12 +1,14 @@
 package com.nhom6.ecommerce.service;
 
 import com.nhom6.ecommerce.dto.UserLoginDTO;
+import com.nhom6.ecommerce.dto.UserProfileDTO;
 import com.nhom6.ecommerce.dto.UserRegistrationDTO;
 import com.nhom6.ecommerce.entity.User;
 import com.nhom6.ecommerce.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.Optional;
 // Lưu ý: Cần thêm BCryptPasswordEncoder để mã hóa pass
 
@@ -62,5 +64,52 @@ public class UserService {
         }
 
         return user;
+    }
+
+    // THÊM HÀM NÀY:
+    public User updateProfile(UserProfileDTO dto) {
+        User user = userRepository.findById(dto.getUserId())
+                .orElseThrow(() -> new RuntimeException("Người dùng không tồn tại"));
+
+        // Chỉ cập nhật các trường cho phép
+        user.setFullName(dto.getFullName());
+        user.setPhone(dto.getPhone());
+        user.setAddress(dto.getAddress());
+        user.setGender(dto.getGender());
+        user.setBirthday(dto.getBirthday());
+
+        // Lưu và trả về thông tin mới nhất
+        return userRepository.save(user);
+    }
+
+    // Hàm lấy chi tiết user (để load lại dữ liệu mới nhất)
+    public User getUserById(String id) {
+        return userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+    }
+
+    // HÀM MỚI: Tích điểm và Thăng hạng
+    public void accumulatePoints(String userId, BigDecimal orderTotal) {
+        User user = userRepository.findById(userId).orElseThrow();
+
+        // Quy đổi: 10.000 VNĐ = 1 điểm
+        int pointsEarned = orderTotal.divide(BigDecimal.valueOf(10000)).intValue();
+
+        // Cộng dồn
+        int newTotalPoints = user.getOrderPoints() + pointsEarned;
+        user.setOrderPoints(newTotalPoints);
+
+        // Logic thăng hạng tự động
+        if (newTotalPoints >= 10000) {
+            user.setMembershipLevel(User.MembershipLevel.DIAMOND);
+        } else if (newTotalPoints >= 5000) {
+            user.setMembershipLevel(User.MembershipLevel.GOLD);
+        } else if (newTotalPoints >= 1000) {
+            user.setMembershipLevel(User.MembershipLevel.SILVER);
+        } else {
+            user.setMembershipLevel(User.MembershipLevel.BRONZE);
+        }
+
+        userRepository.save(user);
     }
 }

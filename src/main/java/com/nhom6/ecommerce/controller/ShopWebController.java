@@ -8,6 +8,8 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
+import java.util.Optional;
+
 @Controller
 public class ShopWebController {
 
@@ -24,12 +26,22 @@ public class ShopWebController {
     }
 
     // 2. Trang Thanh toán (Checkout): Hiển thị form mua 1 sản phẩm cụ thể
+    // --- SỬA ĐOẠN NÀY ---
     @GetMapping("/checkout-page")
-    public String showCheckoutPage(@RequestParam String productId, Model model) {
-        Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new RuntimeException("Sản phẩm không tồn tại"));
-
-        model.addAttribute("product", product);
-        return "checkout"; // Trả về checkout.html
+    public String showCheckoutPage(@RequestParam(required = false) String productId, Model model) {
+        if (productId != null) {
+            // Trường hợp: Mua Ngay (Buy Now) 1 sản phẩm
+            Optional<Product> productOpt = productRepository.findById(productId);
+            if (productOpt.isPresent()) {
+                model.addAttribute("product", productOpt.get());
+                model.addAttribute("isBuyNow", true); // Cờ đánh dấu là mua ngay
+            }
+        } else {
+            // Trường hợp: Thanh toán giỏ hàng (Cart Checkout)
+            // Không truyền product xuống, Frontend sẽ tự lấy từ LocalStorage
+            model.addAttribute("product", null);
+            model.addAttribute("isBuyNow", false);
+        }
+        return "checkout";
     }
 }

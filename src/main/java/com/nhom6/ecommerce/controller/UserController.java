@@ -1,6 +1,7 @@
 package com.nhom6.ecommerce.controller;
 
 import com.nhom6.ecommerce.dto.UserLoginDTO;
+import com.nhom6.ecommerce.dto.UserProfileDTO;
 import com.nhom6.ecommerce.dto.UserRegistrationDTO;
 import com.nhom6.ecommerce.entity.User;
 import com.nhom6.ecommerce.service.UserService;
@@ -35,6 +36,27 @@ public class UserController {
         try {
             User user = userService.login(loginDTO);
             return ResponseEntity.ok(user);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    // 1. API Lấy thông tin chi tiết (để hiển thị lên form)
+    @GetMapping("/{id}")
+    public ResponseEntity<?> getUserDetail(@PathVariable String id) {
+        try {
+            return ResponseEntity.ok(userService.getUserById(id));
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    // 2. API Cập nhật thông tin
+    @PutMapping("/profile")
+    public ResponseEntity<?> updateProfile(@RequestBody UserProfileDTO profileDTO) {
+        try {
+            User updatedUser = userService.updateProfile(profileDTO);
+            return ResponseEntity.ok(updatedUser);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
