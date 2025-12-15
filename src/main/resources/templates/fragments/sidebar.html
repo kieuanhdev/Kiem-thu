@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<div th:fragment="sidebar(activeTab)"
+     class="d-flex flex-column flex-shrink-0 p-3 text-white bg-dark vh-100 sticky-top"
+     style="width: 280px;">
+
+    <a href="/admin/dashboard" class="d-flex align-items-center mb-3 mb-md-0 me-md-auto text-white text-decoration-none border-bottom pb-3 w-100">
+        <i class="fas fa-user-shield fs-4 me-2"></i>
+        <span class="fs-4 fw-bold">ADMIN PANEL</span>
+    </a>
+
+    <hr>
+
+    <ul class="nav nav-pills flex-column mb-auto">
+        <li class="nav-item">
+            <a href="/admin/dashboard"
+               th:classappend="${activeTab == 'dashboard'} ? 'active' : ''"
+               class="nav-link text-white">
+                <i class="fas fa-tachometer-alt me-2"></i>
+                Tổng quan
+            </a>
+        </li>
+        <li>
+            <a href="/admin/products"
+               th:classappend="${activeTab == 'products'} ? 'active' : ''"
+               class="nav-link text-white">
+                <i class="fas fa-box me-2"></i>
+                Quản lý Sản phẩm
+            </a>
+        </li>
+        <li>
+            <a href="/admin/vouchers"
+               th:classappend="${activeTab == 'vouchers'} ? 'active' : ''"
+               class="nav-link text-white">
+                <i class="fas fa-ticket-alt me-2"></i>
+                Quản lý Voucher
+            </a>
+        </li>
+        <li>
+            <a href="/admin/orders"
+               th:classappend="${activeTab == 'orders'} ? 'active' : ''"
+               class="nav-link text-white">
+                <i class="fas fa-shopping-cart me-2"></i>
+                Quản lý Đơn hàng
+            </a>
+        </li>
+    </ul>
+
+    <hr>
+
+    <div class="dropdown">
+        <a href="#" class="d-flex align-items-center text-white text-decoration-none dropdown-toggle" id="dropdownUser1" data-bs-toggle="dropdown" aria-expanded="false">
+            <img src="https://github.com/mdo.png" alt="" width="32" height="32" class="rounded-circle me-2">
+            <strong>Admin</strong>
+        </a>
+        <ul class="dropdown-menu dropdown-menu-dark text-small shadow" aria-labelledby="dropdownUser1">
+            <li><a class="dropdown-item" href="/">Xem Shop (Client)</a></li>
+            <li><a class="dropdown-item" href="/profile">Hồ sơ cá nhân</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="#" onclick="localStorage.clear(); window.location.href='/login'">Đăng xuất</a></li>
+        </ul>
+    </div>
+</div>
+
+</body>
+</html>

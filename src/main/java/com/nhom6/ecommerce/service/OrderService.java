@@ -20,6 +20,7 @@ public class OrderService {
     @Autowired private ProductRepository productRepository;
     @Autowired private UserRepository userRepository;
     @Autowired private VoucherRepository voucherRepository;
+    @Autowired private UserService userService;
 
     @Transactional // Đảm bảo tính toàn vẹn: Lỗi ở bất kỳ bước nào sẽ rollback toàn bộ
     public Order createOrder(OrderRequestDTO req) {
@@ -117,6 +118,12 @@ public class OrderService {
         order.setVoucherCode(req.getVoucherCode());
         order.setItems(orderItems); // Cascade sẽ tự lưu OrderItems
 
-        return orderRepository.save(order);
+        Order savedOrder = orderRepository.save(order); // Lưu đơn hàng trước
+
+        // 6. CỘNG ĐIỂM TÍCH LŨY (MỚI THÊM)
+        // Gọi sang UserService để tính điểm và thăng hạng ngay lập tức
+        userService.accumulatePoints(user.getUserId(), finalTotal);
+
+        return savedOrder;
     }
 }
