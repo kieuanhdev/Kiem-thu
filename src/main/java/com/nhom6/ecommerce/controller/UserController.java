@@ -1,5 +1,6 @@
 package com.nhom6.ecommerce.controller;
 
+import com.nhom6.ecommerce.dto.UserLoginDTO;
 import com.nhom6.ecommerce.dto.UserRegistrationDTO;
 import com.nhom6.ecommerce.entity.User;
 import com.nhom6.ecommerce.service.UserService;
@@ -23,6 +24,17 @@ public class UserController {
 
             // Trả về toàn bộ thông tin User vừa tạo (Password đã bị @JsonIgnore ẩn đi)
             return ResponseEntity.ok(newUser);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    // THÊM HÀM NÀY:
+    @PostMapping("/login")
+    public ResponseEntity<?> loginUser(@Valid @RequestBody UserLoginDTO loginDTO) {
+        try {
+            User user = userService.login(loginDTO);
+            return ResponseEntity.ok(user);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
