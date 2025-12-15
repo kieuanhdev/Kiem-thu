@@ -1,5 +1,6 @@
 package com.nhom6.ecommerce.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -23,6 +24,7 @@ public class User {
     private String email;
 
     @Column(nullable = false)
+    @JsonIgnore
     private String password;
 
     @Column(name = "fullname", length = 50)
