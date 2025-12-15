@@ -103,11 +103,17 @@
 
             if (response.ok) {
                 // Đăng nhập thành công
-                // Lưu thông tin User vào LocalStorage để dùng cho các trang khác (ví dụ trang Đặt hàng)
+                // 1. Lưu thông tin user vào LocalStorage (để các trang khác dùng)
                 localStorage.setItem('currentUser', JSON.stringify(data));
 
-                // Chuyển hướng sang trang Quản lý Sản phẩm (Admin)
-                window.location.href = '/admin/products';
+                // 2. Kiểm tra quyền (Role) để điều hướng
+                if (data.role === 'ADMIN') {
+                    // Nếu là ADMIN -> Vào trang Dashboard quản trị
+                    window.location.href = '/admin/dashboard';
+                } else {
+                    // Nếu là CUSTOMER (hoặc khác) -> Về trang chủ mua sắm
+                    window.location.href = '/';
+                }
             } else {
                 // Đăng nhập thất bại (Hiện lỗi từ Backend trả về)
                 errorAlert.innerText = data || "Đăng nhập thất bại!";
