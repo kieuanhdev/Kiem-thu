@@ -18,50 +18,62 @@ public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "user_id")
-    private String userId;
+    private String userId; //
 
     @Column(unique = true, nullable = false, length = 50)
-    private String email;
+    private String email; //
 
     @Column(nullable = false)
     @JsonIgnore
-    private String password;
+    private String password; //
 
     @Column(name = "fullname", length = 50)
-    private String fullName;
+    private String fullName; //
 
     @Enumerated(EnumType.STRING)
-    private Gender gender;
+    private Gender gender; //
 
     @Column(length = 10)
-    private String phone;
+    private String phone; //
 
     @Enumerated(EnumType.STRING)
-    private Role role;
+    private Role role; //
 
     @Column(name = "is_active")
-    private boolean isActive = true;
+    private boolean isActive = true; //
 
-    private String address;
+    private String address; //
 
-    // --- SỬA ĐOẠN NÀY ---
-    // Đổi từ String sang Enum để quản lý chặt chẽ các hạng (Đồng, Bạc, Vàng...)
     @Enumerated(EnumType.STRING)
     @Column(name = "membership_level")
-    private MembershipLevel membershipLevel = MembershipLevel.BRONZE; // Mặc định là Đồng
+    private MembershipLevel membershipLevel = MembershipLevel.BRONZE; //
 
-    private LocalDate birthday;
+    private LocalDate birthday; //
 
     @Column(name = "order_points")
-    private Integer orderPoints = 0; // Dùng Integer thay vì int để tương thích tốt hơn với Hibernate
+    private Integer orderPoints = 0; //
+
+    // --- BỔ SUNG CÁC TRƯỜNG THIẾU ---
+
+    // 1. cart_id
+    // Trong thực tế Spring Boot, ta thường dùng @OneToOne với Entity Cart.
+    // Nhưng để bám sát đặc tả "cart_id (varchar)", ta khai báo như sau:
+    @Column(name = "cart_id")
+    private String cartId;
+
+    // 2. product_id
+    // (Lưu ý: Đặc tả ghi là "Tên loại h...", có thể là sản phẩm yêu thích hoặc gợi ý)
+    @Column(name = "product_id")
+    private String productId;
+
+    // --------------------------------
 
     @Column(name = "created_at")
-    private LocalDateTime createdAt;
+    private LocalDateTime createdAt; //
 
     @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
+    private LocalDateTime updatedAt; //
 
-    // Tự động cập nhật thời gian
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
@@ -73,15 +85,8 @@ public class User {
         updatedAt = LocalDateTime.now();
     }
 
-    // --- CÁC ENUM ---
+    // Enum Definitions
     public enum Gender { MALE, FEMALE, OTHER }
     public enum Role { CUSTOMER, ADMIN }
-
-    // Thêm Enum này để phục vụ tính năng Hạng thành viên
-    public enum MembershipLevel {
-        BRONZE,  // Đồng
-        SILVER,  // Bạc
-        GOLD,    // Vàng
-        DIAMOND  // Kim cương
-    }
+    public enum MembershipLevel { BRONZE, SILVER, GOLD, DIAMOND }
 }

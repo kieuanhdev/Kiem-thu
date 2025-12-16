@@ -10,7 +10,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.util.Optional;
-// Lưu ý: Cần thêm BCryptPasswordEncoder để mã hóa pass
+import java.util.regex.Pattern;
 
 @Service
 public class UserService {
@@ -18,98 +18,102 @@ public class UserService {
     @Autowired
     private UserRepository userRepository;
 
+    // Regex chuẩn cho email (đơn giản hóa)
+    private static final String EMAIL_REGEX = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$";
+
     public User registerUser(UserRegistrationDTO request) {
-        // 1. Kiểm tra Email trùng [cite: 525]
-        if (userRepository.existsByEmail(request.getEmail())) {
+        // --- 1. VALIDATE EMAIL ---
+        String email = request.getEmail();
+        // Ereg1: Không được để trống hoặc toàn khoảng trắng
+        if (email == null || email.trim().isEmpty()) {
+            throw new RuntimeException("Ereg1: Tên tài khoản không được để trống");
+        }
+        // Ereg3: Độ dài không quá 50 ký tự (Check trước format để tối ưu)
+        if (email.length() > 50) {
+            throw new RuntimeException("Ereg3: Tên tài khoản không quá 50 ký tự");
+        }
+        // Ereg2: Phải đúng định dạng email
+        if (!Pattern.matches(EMAIL_REGEX, email)) {
+            throw new RuntimeException("Ereg2: Vui lòng nhập đúng định dạng email");
+        }
+        // Ereg4: Email đã tồn tại
+        if (userRepository.existsByEmail(email)) {
             throw new RuntimeException("Ereg4: Email đã được sử dụng");
         }
-
-        // 2. Kiểm tra xác nhận mật khẩu [cite: 539]
-        if (!request.getPassword().equals(request.getConfirmPassword())) {
+        // --- 2. VALIDATE MẬT KHẨU ---
+        String password = request.getPassword();
+        String confirmPassword = request.getConfirmPassword();
+        // Erg5: Mật khẩu không được để trống
+        if (password == null || password.trim().isEmpty()) {
+            throw new RuntimeException("Erg5: Mật khẩu không được để trống hoặc toàn khoảng trắng");
+        }
+        // Erg6: Mật khẩu < 6 ký tự
+        if (password.length() < 6) {
+            throw new RuntimeException("Erg6: Mật khẩu phải có ít nhất 6 ký tự");
+        }
+        // Erg7: Mật khẩu > 30 ký tự
+        if (password.length() > 30) {
+            throw new RuntimeException("Erg7: Mật khẩu không vượt quá 30 ký tự");
+        }
+        // --- 3. VALIDATE XÁC NHẬN MẬT KHẨU ---
+        // Erg8: Xác nhận mật khẩu để trống
+        if (confirmPassword == null || confirmPassword.trim().isEmpty()) {
+            throw new RuntimeException("Erg8: Vui lòng nhập lại mật khẩu");
+        }
+        // Erg9: Mật khẩu không khớp
+        if (!password.equals(confirmPassword)) {
             throw new RuntimeException("Erg9: Mật khẩu xác nhận không khớp");
         }
-
-        // 3. Tạo User mới
+        // --- 4. TẠO USER MỚI (KHỞI TẠO ĐẦY ĐỦ GIÁ TRỊ MẶC ĐỊNH) ---
         User newUser = new User();
-        newUser.setEmail(request.getEmail());
-        // TODO: Mã hóa mật khẩu trước khi lưu (dùng BCrypt)
-        newUser.setPassword(request.getPassword());
+        newUser.setEmail(email);
+        // Lưu ý: Cần mã hóa mật khẩu ở đây trong thực tế
+        newUser.setPassword(password);
         newUser.setFullName(request.getFullName());
         newUser.setPhone(request.getPhone());
-        newUser.setRole(User.Role.CUSTOMER); // Mặc định là khách hàng
+        newUser.setRole(User.Role.CUSTOMER);
         newUser.setActive(true);
-
+        // Khởi tạo các giá trị mặc định theo Snapshot DB
+        newUser.setOrderPoints(0); // oder_points mặc định 0
+        newUser.setMembershipLevel(User.MembershipLevel.BRONZE); // level mặc định
         return userRepository.save(newUser);
     }
 
-    // THÊM HÀM NÀY:
+    // ... (Giữ nguyên các hàm login, updateProfile, accumulatePoints của bạn) ...
+
     public User login(UserLoginDTO loginDTO) {
-        // 1. Tìm user theo email
         Optional<User> userOpt = userRepository.findByEmail(loginDTO.getEmail());
-
-        if (userOpt.isEmpty()) {
-            throw new RuntimeException("Tài khoản không tồn tại");
-        }
-
+        if (userOpt.isEmpty()) throw new RuntimeException("Tài khoản không tồn tại");
         User user = userOpt.get();
-
-        // 2. Kiểm tra mật khẩu (Lưu ý: Nếu bạn chưa mã hóa thì so sánh string thường)
-        if (!user.getPassword().equals(loginDTO.getPassword())) {
-            throw new RuntimeException("Mật khẩu không chính xác");
-        }
-
-        // 3. Kiểm tra trạng thái hoạt động
-        if (!user.isActive()) {
-            throw new RuntimeException("Tài khoản đã bị khóa");
-        }
-
+        if (!user.getPassword().equals(loginDTO.getPassword())) throw new RuntimeException("Mật khẩu không chính xác");
+        if (!user.isActive()) throw new RuntimeException("Tài khoản đã bị khóa");
         return user;
     }
 
-    // THÊM HÀM NÀY:
     public User updateProfile(UserProfileDTO dto) {
         User user = userRepository.findById(dto.getUserId())
                 .orElseThrow(() -> new RuntimeException("Người dùng không tồn tại"));
-
-        // Chỉ cập nhật các trường cho phép
         user.setFullName(dto.getFullName());
         user.setPhone(dto.getPhone());
         user.setAddress(dto.getAddress());
         user.setGender(dto.getGender());
         user.setBirthday(dto.getBirthday());
-
-        // Lưu và trả về thông tin mới nhất
         return userRepository.save(user);
     }
 
-    // Hàm lấy chi tiết user (để load lại dữ liệu mới nhất)
-    public User getUserById(String id) {
-        return userRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-    }
-
-    // HÀM MỚI: Tích điểm và Thăng hạng
     public void accumulatePoints(String userId, BigDecimal orderTotal) {
         User user = userRepository.findById(userId).orElseThrow();
-
-        // Quy đổi: 10.000 VNĐ = 1 điểm
         int pointsEarned = orderTotal.divide(BigDecimal.valueOf(10000)).intValue();
-
-        // Cộng dồn
         int newTotalPoints = user.getOrderPoints() + pointsEarned;
         user.setOrderPoints(newTotalPoints);
 
-        // Logic thăng hạng tự động
-        if (newTotalPoints >= 10000) {
-            user.setMembershipLevel(User.MembershipLevel.DIAMOND);
-        } else if (newTotalPoints >= 5000) {
-            user.setMembershipLevel(User.MembershipLevel.GOLD);
-        } else if (newTotalPoints >= 1000) {
-            user.setMembershipLevel(User.MembershipLevel.SILVER);
-        } else {
-            user.setMembershipLevel(User.MembershipLevel.BRONZE);
-        }
+        if (newTotalPoints >= 10000) user.setMembershipLevel(User.MembershipLevel.DIAMOND);
+        else if (newTotalPoints >= 5000) user.setMembershipLevel(User.MembershipLevel.GOLD);
+        else if (newTotalPoints >= 1000) user.setMembershipLevel(User.MembershipLevel.SILVER);
+        else user.setMembershipLevel(User.MembershipLevel.BRONZE);
 
         userRepository.save(user);
     }
+
+
 }
