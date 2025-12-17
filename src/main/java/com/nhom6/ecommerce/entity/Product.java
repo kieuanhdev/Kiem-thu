@@ -4,39 +4,38 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
 import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.List;
+import java.util.Date;
 import java.util.Set;
+import java.util.List;
 
 @Entity
 @Table(name = "products")
-@Data
+@Data // Lombok sẽ tự sinh ra getter/setter cho TẤT CẢ các trường dưới đây
 @NoArgsConstructor
 @AllArgsConstructor
 public class Product {
 
-    // 1. Thông tin định danh [cite: 823-847]
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private String id; // Hệ thống tự sinh UUID
+    @GeneratedValue(strategy = GenerationType.UUID) // Hoặc Identity tùy DB của bạn
+    private String id;
 
-    @Column(nullable = false, unique = true, length = 50)
-    private String sku; // Mã SKU duy nhất
+    // --- 1. ĐỊNH DANH ---
+    @Column(unique = true, nullable = false)
+    private String sku;
 
     @Column(nullable = false)
-    private String name; // Tên sản phẩm
+    private String name;
 
-    @Column(name = "model_code", length = 100)
-    private String modelCode;
+    @Column(name = "model_code")
+    private String modelCode; // Mới thêm
 
-    // 2. Phân loại & Quan hệ [cite: 850-877]
+    // --- 2. PHÂN LOẠI ---
     @ManyToOne
-    @JoinColumn(name = "brand_id", nullable = false)
+    @JoinColumn(name = "brand_id")
     private Brand brand;
 
-    // Một sản phẩm thuộc nhiều danh mục
     @ManyToMany
     @JoinTable(
             name = "product_categories",
@@ -45,58 +44,94 @@ public class Product {
     )
     private Set<Category> categories;
 
-    private String origin; // Xuất xứ
-    private String unit;   // Đơn vị tính
+    @Column(name = "supplier_id")
+    private String supplierId; // Mới thêm
 
-    // 3. Thông tin tài chính [cite: 881-933]
+    private String origin;
+
+    private String unit;
+
+    // --- 3. GIÁ & THUẾ ---
     @Column(name = "import_price")
     private BigDecimal importPrice;
 
     @Column(name = "sale_price", nullable = false)
-    private BigDecimal salePrice; // Giá bán lẻ
+    private BigDecimal salePrice;
 
     @Column(name = "original_price")
-    private BigDecimal originalPrice; // Giá niêm yết
+    private BigDecimal originalPrice;
 
-    // 4. Kho vận [cite: 938-963]
+    @Column(name = "wholesale_price")
+    private BigDecimal wholesalePrice; // Mới thêm
+
+    @Column(name = "vat_rate")
+    private Integer vatRate; // Mới thêm
+
+    private String currency; // Mới thêm (VND, USD)
+
+    // --- 4. KHO VẬN ---
     @Column(name = "stock_quantity")
     private Integer stockQuantity = 0;
 
-    private Integer weightG; // Trọng lượng (gram)
-    private Integer lengthCm;
-    private Integer widthCm;
-    private Integer heightCm;
+    @Column(name = "min_stock_alert")
+    private Integer minStockAlert = 0; // Mới thêm
 
-    // 5. Nội dung & Media [cite: 974-1016]
-    @Column(nullable = false)
-    private String thumbnail; // Ảnh đại diện
+    @Column(name = "weight_g")
+    private Integer weightG; // Mới thêm
 
-    @ElementCollection
-    @CollectionTable(name = "product_images", joinColumns = @JoinColumn(name = "product_id"))
-    @Column(name = "image_url")
-    private List<String> gallery; // Album ảnh
+    @Column(name = "length_cm")
+    private Integer lengthCm; // Mới thêm
+
+    @Column(name = "width_cm")
+    private Integer widthCm; // Mới thêm
+
+    @Column(name = "height_cm")
+    private Integer heightCm; // Mới thêm
+
+    // --- 5. NỘI DUNG ---
+    private String thumbnail;
+
+    @ElementCollection // Lưu danh sách ảnh dưới dạng bảng phụ hoặc JSON tùy DB
+    private List<String> gallery;
+
+    @Column(name = "video_url")
+    private String videoUrl; // Mới thêm
+
+    @Column(name = "short_desc", length = 500)
+    private String shortDesc; // Mới thêm
 
     @Column(columnDefinition = "TEXT")
-    private String description; // HTML mô tả chi tiết
+    private String description;
 
     @ElementCollection
-    @CollectionTable(name = "product_tags", joinColumns = @JoinColumn(name = "product_id"))
-    @Column(name = "tag")
-    private List<String> tags; // Từ khóa tìm kiếm
+    private List<String> tags; // Mới thêm (Từ khóa tìm kiếm)
 
-    // 6. Thời gian & Hạn sử dụng [cite: 1034-1053]
-    private LocalDate manufactureDate;
-    private LocalDate expiryDate;
+    // --- 6. THỐNG KÊ (Hệ thống tự tính) ---
+    @Column(name = "view_count")
+    private Integer viewCount = 0;
 
-    // Meta data
+    @Column(name = "sold_count")
+    private Integer soldCount = 0;
+
+    @Column(name = "review_count")
+    private Integer reviewCount = 0;
+
+    @Column(name = "rating_avg")
+    private Float ratingAvg = 0f;
+
+    // --- 7. THỜI GIAN ---
+    @Column(name = "manufacture_date")
+    @Temporal(TemporalType.DATE)
+    private Date manufactureDate; // Mới thêm
+
+    @Column(name = "expiry_date")
+    @Temporal(TemporalType.DATE)
+    private Date expiryDate; // Mới thêm
+
+    @Column(name = "created_at")
+    @Temporal(TemporalType.TIMESTAMP)
+    private Date createdAt = new Date();
+
+    @Column(name = "is_active")
     private boolean isActive = true;
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
-
-    @PrePersist
-    protected void onCreate() { createdAt = LocalDateTime.now(); updatedAt = LocalDateTime.now(); }
-    @PreUpdate
-    protected void onUpdate() { updatedAt = LocalDateTime.now(); }
-
-
 }
