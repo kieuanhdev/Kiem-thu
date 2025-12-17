@@ -64,12 +64,16 @@ public class Order {
     private LocalDateTime deliveryDate; // Ngày giao hàng thành công
 
     public enum PaymentMethod { COD, BANKING, MOMO }
+    // Trong file Order.java của bạn
     public enum OrderStatus {
         PENDING,
         CONFIRMED,
         SHIPPING,
-        DELIVERED, // <--- Thêm trạng thái này
+        DELIVERED,
         COMPLETED,
-        CANCELLED
+        CANCELLED,
+
+        // --- THÊM TRẠNG THÁI NÀY ---
+        RETURN_REQUESTED // Đã yêu cầu trả hàng/hoàn tiền
     }
 }

@@ -23,44 +23,80 @@ public class VoucherService {
     @Autowired private ProductRepository productRepository;
     @Autowired private CategoryRepository categoryRepository;
 
+    /**
+     * HÀM CHÍNH: TẠO VOUCHER
+     * Luồng xử lý chính được đơn giản hóa tối đa, chỉ gọi các bước validate.
+     */
     @Transactional
     public Voucher createVoucher(VoucherRequestDTO req) {
-        // --- 1. VALIDATE MÃ VOUCHER (CODE) ---
+        // 1. Chuẩn hóa dữ liệu đầu vào (Trim, UpperCase...)
         String code = req.getCode().trim().toUpperCase();
+        String name = req.getName().trim();
 
+        // 2. Thực hiện các bước Validation theo thứ tự
+        validateCode(code);
+        validateName(name);
+        validateDiscount(req);
+        validateTime(req.getStartAt(), req.getEndAt());
+        validateUsageLimit(req);
+        validateScope(req);
+        validateAudience(req);
+
+        // 3. Mapping & Lưu
+        return saveVoucher(req, code, name);
+    }
+
+    // =========================================================================
+    // CÁC HÀM VALIDATION NHỎ (PRIVATE METHODS)
+    // =========================================================================
+
+    /**
+     * 1. Validate Mã Voucher (Code)
+     */
+    private void validateCode(String code) {
         if (code.contains(" ") || code.contains("--")) {
             throw new RuntimeException("1E.4: Mã voucher không được chứa khoảng trắng hoặc '--'.");
         }
         if (voucherRepository.existsByCode(code)) {
             throw new RuntimeException("1E.5: Mã voucher đã tồn tại.");
         }
-        // Check blacklist prefixes
         if (code.startsWith("MKT") || code.startsWith("FLS") || code.startsWith("VNPAY")) {
             throw new RuntimeException("1E.6: Mã voucher xung đột với chương trình khác.");
         }
+    }
 
-        // --- 2. VALIDATE TÊN (NAME) ---
-        String name = req.getName().trim();
+    /**
+     * 2. Validate Tên Voucher (Name)
+     */
+    private void validateName(String name) {
         if (Pattern.matches("^[0-9]+$", name)) {
             throw new RuntimeException("2E.4: Tên voucher không được chỉ gồm số.");
         }
         if (name.matches(".*[<>/'\"{}].*") || containsEmoji(name)) {
             throw new RuntimeException("2E.3: Tên voucher chứa ký tự không hợp lệ.");
         }
+    }
 
-        // --- 3. VALIDATE LOẠI GIẢM GIÁ (DISCOUNT TYPE) ---
+    /**
+     * 3 & 4. Validate Loại giảm giá & Giá trị (Discount Type & Value)
+     */
+    private void validateDiscount(VoucherRequestDTO req) {
+        // [3E.3] Check vận chuyển
         if (req.getDiscountType() == Voucher.DiscountType.SHIPPING) {
             boolean shippingServiceSupport = true; // Giả lập
             if (!shippingServiceSupport) throw new RuntimeException("3E.3: Loại giảm giá vận chuyển không khả dụng.");
         }
 
-        // --- 4. VALIDATE GIÁ TRỊ GIẢM (DISCOUNT VALUE) ---
         BigDecimal val = req.getDiscountValue();
+
+        // [4E.1] Check Phần trăm
         if (req.getDiscountType() == Voucher.DiscountType.PERCENTAGE) {
             if (val.compareTo(BigDecimal.ONE) < 0 || val.compareTo(BigDecimal.valueOf(100)) > 0) {
                 throw new RuntimeException("4E.1: Giá trị phần trăm phải từ 1 đến 100%.");
             }
-        } else if (req.getDiscountType() == Voucher.DiscountType.FIXED_AMOUNT) {
+        }
+        // [4E.3 - 4E.5] Check Số tiền cố định
+        else if (req.getDiscountType() == Voucher.DiscountType.FIXED_AMOUNT) {
             if (val.compareTo(BigDecimal.valueOf(1000)) < 0) {
                 throw new RuntimeException("4E.3: Giá trị giảm tối thiểu là 1.000đ.");
             }
@@ -70,101 +106,127 @@ public class VoucherService {
             if (val.compareTo(req.getMinOrderValue()) > 0) {
                 throw new RuntimeException("4E.5: Giá trị giảm không được lớn hơn giá trị tối thiểu đơn hàng.");
             }
-            // Check số nguyên (không lẻ)
             if (val.stripTrailingZeros().scale() > 0) {
                 throw new RuntimeException("Giá trị giảm phải là số nguyên, không được lẻ thập phân.");
             }
         }
+    }
 
-        // --- 6. VALIDATE THỜI GIAN (TIME) ---
+    /**
+     * 6. Validate Thời gian (Time)
+     */
+    private void validateTime(LocalDateTime startAt, LocalDateTime endAt) {
         LocalDateTime now = LocalDateTime.now();
-        if (req.getStartAt().isBefore(now.minusSeconds(60))) {
+        if (startAt.isBefore(now.minusSeconds(60))) {
             throw new RuntimeException("6E.1: Ngày bắt đầu không hợp lệ (Quá khứ).");
         }
-        if (!req.getEndAt().isAfter(req.getStartAt())) {
+        if (!endAt.isAfter(startAt)) {
             throw new RuntimeException("6E.2: Ngày kết thúc phải lớn hơn ngày bắt đầu.");
         }
-        if (ChronoUnit.YEARS.between(req.getStartAt(), req.getEndAt()) > 3) {
+        if (ChronoUnit.YEARS.between(startAt, endAt) > 3) {
             throw new RuntimeException("6E.3: Thời gian áp dụng voucher không vượt quá 3 năm.");
         }
+    }
 
-        // --- 8. VALIDATE GIỚI HẠN NGƯỜI DÙNG ---
+    /**
+     * 8. Validate Giới hạn sử dụng (Usage Limit)
+     */
+    private void validateUsageLimit(VoucherRequestDTO req) {
         int limitPerUser = req.getUsageLimitPerUser() != null ? req.getUsageLimitPerUser() : 1;
+
         if (limitPerUser > req.getUsageLimit()) {
             throw new RuntimeException("8E.2: Giới hạn người dùng không được vượt quá tổng số lượng phát hành.");
         }
         if (req.getAudienceType() == Voucher.AudienceType.NEW_USER && limitPerUser != 1) {
             throw new RuntimeException("8E.3: Voucher cho khách mới chỉ được dùng 1 lần.");
         }
+    }
 
-        // --- 9 & 11. VALIDATE PHẠM VI (SCOPE & IDs) ---
+    /**
+     * 9 & 11. Validate Phạm vi áp dụng (Scope)
+     * Hàm này lại chia nhỏ tiếp thành 2 hàm con nữa để code gọn hơn.
+     */
+    private void validateScope(VoucherRequestDTO req) {
         List<String> scopeIds = req.getScopeIds();
 
         if (req.getScope() == Voucher.ScopeType.CATEGORY) {
-            if (scopeIds == null || scopeIds.isEmpty())
-                throw new RuntimeException("Danh sách danh mục không được để trống.");
-            if (scopeIds.size() > 20)
-                throw new RuntimeException("11E.5: Tối đa 20 danh mục được phép áp dụng.");
-
-            for (String catIdStr : scopeIds) {
-                try {
-                    // --- SỬA QUAN TRỌNG: Ép kiểu String -> Long ---
-                    Long catId = Long.parseLong(catIdStr);
-
-                    if (!categoryRepository.existsById(catId)) {
-                        throw new RuntimeException("9E.3: Danh mục không tồn tại (ID: " + catId + ")");
-                    }
-                    // Check active...
-                } catch (NumberFormatException e) {
-                    throw new RuntimeException("ID danh mục không hợp lệ (Phải là số): " + catIdStr);
-                }
-            }
-
+            validateCategoryScope(scopeIds);
         } else if (req.getScope() == Voucher.ScopeType.PRODUCT) {
-            if (scopeIds == null || scopeIds.isEmpty())
-                throw new RuntimeException("Danh sách sản phẩm không được để trống.");
-            if (scopeIds.size() > 200)
-                throw new RuntimeException("11E.12: Tối đa 200 sản phẩm được phép áp dụng.");
+            validateProductScope(scopeIds, req.getDiscountType(), req.getDiscountValue());
+        }
+    }
 
-            for (String prodId : scopeIds) {
-                // Product ID là String UUID -> Không cần ép kiểu
-                Product p = productRepository.findById(prodId)
-                        .orElseThrow(() -> new RuntimeException("9E.5: Sản phẩm không tồn tại (ID: " + prodId + ")"));
+    private void validateCategoryScope(List<String> scopeIds) {
+        if (scopeIds == null || scopeIds.isEmpty())
+            throw new RuntimeException("Danh sách danh mục không được để trống.");
+        if (scopeIds.size() > 20)
+            throw new RuntimeException("11E.5: Tối đa 20 danh mục được phép áp dụng.");
 
-                if (!p.isActive())
-                    throw new RuntimeException("9E.6: Sản phẩm đã ngừng kinh doanh: " + p.getName());
-
-                // Check giá (11E.7, 11E.13)
-                if (req.getDiscountType() == Voucher.DiscountType.FIXED_AMOUNT
-                        && val.compareTo(p.getSalePrice()) > 0) {
-                    throw new RuntimeException("11E.14: Giá trị giảm (" + val + ") lớn hơn giá bán sản phẩm " + p.getName());
+        for (String catIdStr : scopeIds) {
+            try {
+                Long catId = Long.parseLong(catIdStr);
+                if (!categoryRepository.existsById(catId)) {
+                    throw new RuntimeException("9E.3: Danh mục không tồn tại (ID: " + catId + ")");
                 }
+            } catch (NumberFormatException e) {
+                throw new RuntimeException("ID danh mục không hợp lệ (Phải là số): " + catIdStr);
             }
         }
+    }
 
-        // --- 12. VALIDATE AUDIENCE ---
+    private void validateProductScope(List<String> scopeIds, Voucher.DiscountType type, BigDecimal val) {
+        if (scopeIds == null || scopeIds.isEmpty())
+            throw new RuntimeException("Danh sách sản phẩm không được để trống.");
+        if (scopeIds.size() > 200)
+            throw new RuntimeException("11E.12: Tối đa 200 sản phẩm được phép áp dụng.");
+
+        for (String prodId : scopeIds) {
+            Product p = productRepository.findById(prodId)
+                    .orElseThrow(() -> new RuntimeException("9E.5: Sản phẩm không tồn tại (ID: " + prodId + ")"));
+
+            if (!p.isActive())
+                throw new RuntimeException("9E.6: Sản phẩm đã ngừng kinh doanh: " + p.getName());
+
+            // Check giá trị giảm so với giá sản phẩm
+            if (type == Voucher.DiscountType.FIXED_AMOUNT && val.compareTo(p.getSalePrice()) > 0) {
+                throw new RuntimeException("11E.14: Giá trị giảm (" + val + ") lớn hơn giá bán sản phẩm " + p.getName());
+            }
+        }
+    }
+
+    /**
+     * 12. Validate Đối tượng áp dụng (Audience)
+     */
+    private void validateAudience(VoucherRequestDTO req) {
         if (req.getAudienceType() == Voucher.AudienceType.MEMBER) {
             if (req.getMemberTierId() == null) {
                 throw new RuntimeException("10E.2: Hạng thành viên không tồn tại.");
             }
-            // Check tier existence...
         }
+    }
 
-        // --- MAPPING & SAVE ---
+    /**
+     * Hàm phụ trợ: Mapping & Save
+     */
+    private Voucher saveVoucher(VoucherRequestDTO req, String code, String name) {
         Voucher voucher = new Voucher();
         voucher.setCode(code);
         voucher.setName(name);
         voucher.setDiscountType(req.getDiscountType());
-        voucher.setDiscountValue(val);
+        voucher.setDiscountValue(req.getDiscountValue());
         voucher.setMinOrderValue(req.getMinOrderValue());
         voucher.setStartAt(req.getStartAt());
         voucher.setEndAt(req.getEndAt());
         voucher.setUsageLimit(req.getUsageLimit());
-        voucher.setUsageLimitPerUser(limitPerUser);
+        voucher.setUsageLimitPerUser(req.getUsageLimitPerUser() != null ? req.getUsageLimitPerUser() : 1);
         voucher.setScope(req.getScope());
-        voucher.setScopeIds(scopeIds);
+        voucher.setScopeIds(req.getScopeIds());
         voucher.setAudienceType(req.getAudienceType() != null ? req.getAudienceType() : Voucher.AudienceType.ALL);
         voucher.setMemberTierId(req.getMemberTierId());
+
+        // Mặc định ban đầu
+        voucher.setUsedCount(0);
+        voucher.setActive(true);
 
         return voucherRepository.save(voucher);
     }

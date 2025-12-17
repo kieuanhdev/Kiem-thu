@@ -10,56 +10,69 @@ import java.util.List;
 @Data
 public class ReturnRequest {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private String id;
 
-    // 1. Ngữ cảnh: Thuộc đơn hàng nào
     @ManyToOne
-    @JoinColumn(name = "order_id", nullable = false)
+    @JoinColumn(name = "order_id")
     private Order order;
 
     @ManyToOne
-    @JoinColumn(name = "user_id", nullable = false)
+    @JoinColumn(name = "user_id")
     private User user;
 
-    // 2. Sản phẩm muốn trả
     @ManyToOne
     @JoinColumn(name = "product_id")
     private Product product;
 
-    // Số lượng trả
-    @Column(name = "quantity")
-    private Integer quantity;
+    private int quantity;
 
-    // 3. Lý do & Minh chứng
     @Enumerated(EnumType.STRING)
     private ReturnReason reason;
 
     @Column(columnDefinition = "TEXT")
-    private String description; // Mô tả chi tiết
+    private String description;
 
+    // Lưu danh sách ảnh/video. Trong DB thực tế nên dùng @ElementCollection hoặc convert sang JSON String
     @ElementCollection
-    @CollectionTable(name = "return_proofs", joinColumns = @JoinColumn(name = "return_id"))
-    @Column(name = "media_url")
-    private List<String> proofImages; // Ảnh/Video bằng chứng
+    private List<String> proofImages;
 
-    // 4. Phương thức hoàn tiền
+    // --- THÊM FIELD NÀY ---
+    @ElementCollection
+    private List<String> proofVideos;
+    // ----------------------
+
     @Enumerated(EnumType.STRING)
     private RefundMethod refundMethod;
 
-    // 5. Thông tin ngân hàng (nếu hoàn qua Bank)
+    @Enumerated(EnumType.STRING)
+    private ReturnStatus status;
+
+    // Thông tin ngân hàng
     private String bankName;
     private String bankAccountNumber;
     private String bankAccountName;
 
-    @Enumerated(EnumType.STRING)
-    private ReturnStatus status = ReturnStatus.PENDING;
+    private LocalDateTime createdAt;
 
-    @Column(name = "created_at")
-    private LocalDateTime createdAt = LocalDateTime.now();
+    // --- ĐỊNH NGHĨA CÁC ENUM ---
 
-    // Enums
-    public enum ReturnReason { MISSING_ITEM, DAMAGED, WRONG_ITEM, CHANGED_MIND }
-    public enum RefundMethod { ORIGINAL_SOURCE, BANK_TRANSFER, WALLET }
-    public enum ReturnStatus { PENDING, APPROVED, REJECTED, REFUNDED }
+    public enum ReturnReason {
+        MISSING_ITEM,   // Thiếu hàng
+        DAMAGED,        // Hư hỏng
+        WRONG_ITEM,     // Sai hàng
+        // --- THÊM 2 CÁI NÀY ---
+        NOT_SATISFIED,  // Không ưng ý
+        OTHER           // Khác
+    }
+
+    public enum RefundMethod {
+        BANK_TRANSFER,  // Chuyển khoản
+        // --- THÊM CÁI NÀY ---
+        ORIGINAL_METHOD // Hoàn về nguồn (Ví, Thẻ)
+    }
+
+    public enum ReturnStatus {
+        PENDING, APPROVED, REJECTED, REFUNDED
+    }
 }
