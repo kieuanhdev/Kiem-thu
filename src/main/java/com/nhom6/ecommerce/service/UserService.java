@@ -18,6 +18,12 @@ public class UserService {
     @Autowired
     private UserRepository userRepository;
 
+    // Trong file UserService.java
+    public User getUserById(String id) {
+        return userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng với ID: " + id));
+    }
+
     // Regex chuẩn cho email (đơn giản hóa)
     private static final String EMAIL_REGEX = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$";
 

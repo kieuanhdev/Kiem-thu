@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -25,5 +26,8 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     // Đếm số đơn hàng của user đã dùng voucherCode này
     @Query("SELECT COUNT(o) FROM Order o WHERE o.user.userId = :userId AND o.voucherCode = :code")
     long countVoucherUsageByUser(@Param("userId") String userId, @Param("code") String code);
+
+    @Query("SELECT o FROM Order o JOIN o.items i WHERE o.user.userId = :userId AND i.product.id = :productId")
+    List<Order> findAllOrdersByProduct(@Param("userId") String userId, @Param("productId") String productId);
 
 }
